@@ -5,7 +5,10 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import numpy as np
+import itertools
+import typing
 
+#%%
 ########################################################################
 # California housing using Sklearn #
 
@@ -42,7 +45,7 @@ def plot_predictions(y_pred, y_actual):
 plot_predictions(y_pred, y_train)
 # %%
 ############################################################
-# california housing using own implementation of gradient descent
+# california housing using own implementation of gradient descent (rough version see below for class etc)
 import numpy as np 
 from sklearn import datasets, preprocessing
 from sklearn.model_selection import train_test_split
@@ -105,19 +108,27 @@ class LinearRegression:
         self.losses = [] # losses for each epoch
 
     def fit(self, X, y):
-        X_b = np.c_[np.ones((X.shape[0],1)), X] # add first col of ones to account for b 
         for epoch in range(self.optimiser.epochs):   
-            y_pred = self.predict(X_b) 
+            y_pred = self.predict(X) 
             error = y_pred - y 
-            new_theta = self.optimiser.step(self.theta, X_b, error) 
+            new_theta = self.optimiser.step(self.theta, X, error) 
             self.theta = new_theta             
             loss = (error**2).mean() # MSE
             self.losses.append(loss) 
         self.show_info_and_plot_loss(y_pred, y)
             
     def predict(self, X): 
-        return X.dot(self.theta)
-                    
+        X_b = np.c_[np.ones((X.shape[0],1)), X] # add first col of ones to account for b 
+        return X_b.dot(self.theta)
+    
+    @staticmethod
+    def MSE(y_pred, y_actual):
+        error = y_pred - y_actual 
+        return (error**2).mean()
+            
+    def get_losses(self):
+        return self.losses
+                            
     def plot_losses(self):
         plt.figure()
         plt.ylabel('Loss')
@@ -145,19 +156,20 @@ class GDOptimiser:
         self.alpha = alpha
         self.epochs = epochs
 
-    def _calc_deriv(self, X_b, error):
+    def _calc_deriv(self, X, error):
+        X_b = np.c_[np.ones((X.shape[0],1)), X] # add first col of ones to account for b 
         m = error.shape[0] # length of the error vector
         gradients = 2/m * X_b.T.dot(error) # vector of derivatives of loss with respect to each parameter (bias and weights)
         return gradients
     
-    def step(self, theta, X_b, error):
-        gradients = self._calc_deriv(X_b, error)
+    def step(self, theta, X, error):
+        gradients = self._calc_deriv(X, error)
         return theta - (self.alpha * gradients) # return updated gradient vector
         
         
-
+#%%
+##############################################
 np.random.seed(4)
-
 X, y = datasets.fetch_california_housing(return_X_y=True, as_frame=True)
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
 
@@ -170,3 +182,30 @@ optimiser = GDOptimiser(alpha, epochs)
 model = LinearRegression(optimiser, X_train.shape[1]) 
 model.fit(X_train, y_train)
 # %%
+############################################################
+# Validation practical 
+
+np.random.seed(4)
+X, y = datasets.fetch_california_housing(return_X_y=True, as_frame=True)
+X_train, X_validation, y_train, y_validation = train_test_split(X, y, test_size=0.3)
+
+scaler = preprocessing.StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_validation = scaler.fit_transform(X_validation)
+
+alpha = 0.1
+epochs = 1000
+optimiser = GDOptimiser(alpha, epochs)
+model = LinearRegression(optimiser, X_train.shape[1]) 
+model.fit(X_train, y_train)
+
+y_train_pred = model.predict(X_train)
+y_validation_pred = model.predict(X_validation)
+
+train_loss = LinearRegression.MSE(y_train_pred, y_train)
+validation_loss = LinearRegression.MSE(y_validation_pred, y_validation)
+
+print(f"Train Loss: {train_loss} | Validation Loss: {validation_loss}")
+     
+# %%
+# Hyperparameters, Grid Search & K-Fold Cross Validation practical
